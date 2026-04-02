@@ -112,7 +112,7 @@ body {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 8px;
 }
 @media (max-width: 600px) { .stats { grid-template-columns: repeat(3, 1fr); } }
@@ -136,6 +136,7 @@ body {
 .stat-low    .sv { color: var(--amber); }
 .stat-empty  { border-color: #fca5a5; background: #fef2f2; }
 .stat-empty  .sv { color: var(--red); }
+.stat-total .sv { color: var(--blue); }
 
 /* Unaccounted variants */
 .stat-neutral   { }

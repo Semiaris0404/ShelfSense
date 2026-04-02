@@ -31,14 +31,7 @@ function calcMetrics(weightG, unitWeightG, totalInvoiced, totalCheckedOut, basel
   const onShelf = weightG !== null
     ? Math.max(0, Math.round(weightG / (unitWeightG || 1)))
     : null
-
-  const inStorage = onShelf !== null
-    ? Math.max(0, totalInvoiced - onShelf - totalCheckedOut)
-    : null
-
-  const lowStock   = onShelf !== null && onShelf > 0 && onShelf <= 3
-  const outOfStock = onShelf !== null && onShelf === 0
-
+  
   // Discrepancy: items removed from shelf not accounted for by POS
   const hasBaseline = (baselineUnits || 0) > 0
   let unaccounted = 0
@@ -48,7 +41,16 @@ function calcMetrics(weightG, unitWeightG, totalInvoiced, totalCheckedOut, basel
     unaccounted = Math.max(0, removedFromShelf - checkoutsSinceBase)
   }
 
-  return { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline }
+  const inStorage = onShelf !== null
+    ? Math.max(0, totalInvoiced - onShelf - totalCheckedOut - unaccounted)
+    : null
+
+  const lowStock   = onShelf !== null && onShelf > 0 && onShelf <= 3
+  const outOfStock = onShelf !== null && onShelf === 0
+  const totalInventory = onShelf !== null
+    ? Math.max(0, totalInvoiced - totalCheckedOut - unaccounted)
+    : null
+  return { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline, totalInventory }
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -273,7 +275,7 @@ export default function App() {
           const totalChk = checkouts[id] || 0
           const wt       = readings[id]
 
-          const { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline } =
+          const { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline, totalInventory } =
             calcMetrics(
               wt,
               cfg.unit_weight_g || 1,
@@ -297,8 +299,14 @@ export default function App() {
                 <span className="scale-badge">{id}</span>
               </div>
 
-              {/* ─ 5 stat boxes ─ */}
+              {/* ─ 6 stat boxes ─ */}
               <div className="stats">
+
+                <div className="stat stat-total">
+                  <div className="sv">{totalInventory ?? '—'}</div>
+                  <div className="sl">Total Inventory</div>
+                  <div className="ss">shelf + storage</div>
+                </div>
 
                 <div className="stat">
                   <div className="sv">{totalInv}</div>
