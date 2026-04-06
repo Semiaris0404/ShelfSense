@@ -48,7 +48,7 @@ function calcMetrics(weightG, unitWeightG, totalInvoiced, totalCheckedOut, basel
   const lowStock   = onShelf !== null && onShelf > 0 && onShelf <= 3
   const outOfStock = onShelf !== null && onShelf === 0
   const totalInventory = onShelf !== null
-    ? Math.max(0, totalInvoiced - totalCheckedOut - unaccounted)
+    ? Math.max(0, totalInvoiced - totalCheckedOut)
     : null
   return { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline, totalInventory }
 }
@@ -305,7 +305,7 @@ export default function App() {
                 <div className="stat stat-total">
                   <div className="sv">{totalInventory ?? '—'}</div>
                   <div className="sl">Total Inventory</div>
-                  <div className="ss">shelf + storage</div>
+                  <div className="ss">shelf + storage + unaccounted</div>
                 </div>
 
                 <div className="stat">
