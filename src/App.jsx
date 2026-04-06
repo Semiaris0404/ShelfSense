@@ -308,10 +308,11 @@ export default function App() {
                   <div className="ss">shelf + storage + unaccounted</div>
                 </div>
 
+                {/*This div is moved from its original space to be in between In Storage and Checked Out
                 <div className="stat">
                   <div className="sv">{totalInv}</div>
                   <div className="sl">Total Invoiced</div>
-                </div>
+                </div>*/}
 
                 <div className={`stat ${outOfStock ? 'stat-empty' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
                   <div className="sv">{onShelf ?? '—'}</div>
@@ -323,6 +324,11 @@ export default function App() {
                   <div className="sv">{inStorage ?? '—'}</div>
                   <div className="sl">In Storage</div>
                   <div className="ss">invoice − shelf − sold</div>
+                </div>
+
+                <div className="stat">
+                  <div className="sv">{totalInv}</div>
+                  <div className="sl">Total Invoiced</div>
                 </div>
 
                 <div className="stat">
