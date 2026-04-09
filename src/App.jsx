@@ -48,7 +48,7 @@ function calcMetrics(weightG, unitWeightG, totalInvoiced, totalCheckedOut, basel
   const lowStock   = onShelf !== null && onShelf > 0 && onShelf <= 3
   const outOfStock = onShelf !== null && onShelf === 0
   const totalInventory = onShelf !== null
-    ? Math.max(0, totalInvoiced - totalCheckedOut - unaccounted)
+    ? Math.max(0, totalInvoiced - totalCheckedOut)
     : null
   return { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline, totalInventory }
 }
@@ -305,13 +305,14 @@ export default function App() {
                 <div className="stat stat-total">
                   <div className="sv">{totalInventory ?? '—'}</div>
                   <div className="sl">Total Inventory</div>
-                  <div className="ss">shelf + storage</div>
+                  <div className="ss">shelf + storage + unaccounted</div>
                 </div>
 
+                {/*This div is moved from its original space to be in between In Storage and Checked Out
                 <div className="stat">
                   <div className="sv">{totalInv}</div>
                   <div className="sl">Total Invoiced</div>
-                </div>
+                </div>*/}
 
                 <div className={`stat ${outOfStock ? 'stat-empty' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
                   <div className="sv">{onShelf ?? '—'}</div>
@@ -323,6 +324,11 @@ export default function App() {
                   <div className="sv">{inStorage ?? '—'}</div>
                   <div className="sl">In Storage</div>
                   <div className="ss">invoice − shelf − sold</div>
+                </div>
+
+                <div className="stat">
+                  <div className="sv">{totalInv}</div>
+                  <div className="sl">Total Invoiced</div>
                 </div>
 
                 <div className="stat">
