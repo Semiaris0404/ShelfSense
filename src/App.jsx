@@ -53,7 +53,7 @@ function calcMetrics(weightG, unitWeightG, totalInvoiced, totalCheckedOut, basel
 
   // DR fix: total real-time inventory goes up/down with invoices and sales
   const totalInventory = onShelf !== null
-    ? Math.max(0, totalInvoiced - totalCheckedOut - unaccounted)
+    ? Math.max(0, totalInvoiced - totalCheckedOut)
     : null
 
   return { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline, totalInventory }
@@ -326,7 +326,7 @@ export default function App() {
                   <div className="stat stat-total">
                     <div className="sv">{totalInventory ?? '—'}</div>
                     <div className="sl">Total Inventory</div>
-                    <div className="ss">shelf + storage</div>
+                    <div className="ss">shelf + storage + unaccounted</div>
                   </div>
 
                   <div className={`stat ${outOfStock ? 'stat-empty' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
