@@ -1,0 +1,223 @@
+/* ─── map wrapper ───────────────────────────────────────────────────────── */
+
+.map-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* ─── legend ────────────────────────────────────────────────────────────── */
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e5ea;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.leg-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #374151;
+}
+
+.leg-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid white;
+  box-shadow: 0 0 0 1.5px currentColor;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.leg-static {
+  background: #64748b;
+}
+
+.leg-hint {
+  margin-left: auto;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ─── map container ─────────────────────────────────────────────────────── */
+
+.map-container {
+  position: relative;
+  background: #fff;
+  border: 1.5px solid #e2e5ea;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  cursor: default;
+}
+
+.map-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 1 / 1;
+  max-height: 70vh;
+}
+
+/* ─── pulse animation for live nodes ────────────────────────────────────── */
+
+.pulse-ring {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { r: 2.8; opacity: 0.4; }
+  50%       { r: 3.8; opacity: 0.15; }
+}
+
+/* ─── popup ─────────────────────────────────────────────────────────────── */
+
+.map-popup {
+  position: absolute;
+  background: #fff;
+  border: 1.5px solid #e2e5ea;
+  border-radius: 12px;
+  padding: 12px 14px;
+  min-width: 190px;
+  max-width: 220px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  pointer-events: none;
+  z-index: 10;
+  animation: popIn 0.12s ease;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.95) translateY(4px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.popup-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.popup-live-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  background: #dcfce7;
+  color: #166534;
+  padding: 1px 6px;
+  border-radius: 99px;
+  border: 1px solid #86efac;
+}
+
+.popup-item {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 10px;
+}
+
+.popup-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.popup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.popup-row strong {
+  font-size: 13px;
+  color: #111827;
+}
+
+.popup-warn {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.popup-empty {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.popup-static-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+  text-align: center;
+}
+
+/* ─── tab bar (added to App.css via App.jsx) ─────────────────────────────── */
+
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e2e5ea;
+  padding: 0 32px;
+  background: #fff;
+  position: sticky;
+  top: 65px;
+  z-index: 9;
+}
+
+.tab-btn {
+  padding: 12px 24px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+
+.tab-btn:hover { color: #1f2937; }
+
+.tab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+/* ─── responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .map-wrap { padding: 16px; }
+  .tab-bar  { padding: 0 16px; }
+  .tab-btn  { padding: 10px 14px; font-size: 13px; }
+  .leg-hint { display: none; }
+}
