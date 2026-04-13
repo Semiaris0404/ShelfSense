@@ -323,21 +323,10 @@ export default function App() {
                 {/* ─ 6 stat boxes ─ */}
                 <div className="stats">
 
-                  <div className="stat">
-                    <div className="sv">{totalInv}</div>
-                    <div className="sl">Total Invoiced</div>
-                  </div>
-
                   <div className="stat stat-total">
                     <div className="sv">{totalInventory ?? '—'}</div>
                     <div className="sl">Total Inventory</div>
                     <div className="ss">shelf + storage + unaccounted</div>
-                  </div>
-
-                  <div className="stat">
-                    <div className="sv">{inStorage ?? '—'}</div>
-                    <div className="sl">In Storage</div>
-                    <div className="ss">invoice − shelf − sold</div>
                   </div>
 
                   <div className={`stat ${outOfStock ? 'stat-empty' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
@@ -346,17 +335,28 @@ export default function App() {
                     {wt !== null && <div className="ss">{wt.toFixed(0)} g</div>}
                   </div>
 
+                  <div className="stat">
+                    <div className="sv">{inStorage ?? '—'}</div>
+                    <div className="sl">In Storage</div>
+                    <div className="ss">invoice − shelf − sold</div>
+                  </div>
+
+                  <div className="stat">
+                    <div className="sv">{totalInv}</div>
+                    <div className="sl">Total Invoiced</div>
+                  </div>
+
+                  <div className="stat">
+                    <div className="sv">{totalChk}</div>
+                    <div className="sl">Checked Out</div>
+                  </div>
+
                   <div className={`stat ${!hasBaseline ? 'stat-neutral' : unaccounted > 0 ? 'stat-disc-warn' : 'stat-disc-ok'}`}>
                     <div className="sv">{hasBaseline ? unaccounted : '—'}</div>
                     <div className="sl">Unaccounted</div>
                     <div className="ss">
                       {!hasBaseline ? 'No baseline' : unaccounted > 0 ? 'Investigate' : 'OK'}
                     </div>
-                  </div>
-
-                  <div className="stat">
-                    <div className="sv">{totalChk}</div>
-                    <div className="sl">Checked Out</div>
                   </div>
 
                 </div>
