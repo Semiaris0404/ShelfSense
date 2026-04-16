@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import StoreMap from './StoreMap'
 import './App.css'
 import './StoreMap.css'
+import ScaleControlModal from './ScaleControlModal'
 
 // ─── Scale IDs — add more here if you expand ────────────────────────────────
 const SCALE_IDS = ['scale_1', 'scale_2']
@@ -75,6 +76,7 @@ export default function App() {
   const [chkInput,   setChkInput]   = useState({ scale_1: '', scale_2: '' })
   const [wtInput,    setWtInput]    = useState({ scale_1: '', scale_2: '' })
   const [flash,      setFlash]      = useState({})
+  const [openModalId, setOpenModalId] = useState(null)
 
   // ── initial load ───────────────────────────────────────────────────────────
 
@@ -317,8 +319,26 @@ export default function App() {
                     <h2 className="item-name">{cfg.item_name}</h2>
                     <span className="shelf-tag">{cfg.shelf_location}</span>
                   </div>
-                  <span className="scale-badge">{id}</span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12, padding: '5px 11px' }}
+                      onClick={() => setOpenModalId(id)}
+                    >
+                      ⚙ Scale Controls
+                    </button>
+                    <span className="scale-badge">{id}</span>
+                  </div>
                 </div>
+                
+                {/* Modal — renders outside the card flow, inside the map() */}
+                {openModalId === id && (
+                  <ScaleControlModal
+                    scaleId={id}
+                    itemName={cfg.item_name}
+                    onClose={() => setOpenModalId(null)}
+                  />
+                )}
 
                 {/* ─ 6 stat boxes ─ */}
                 <div className="stats">
