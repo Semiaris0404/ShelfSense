@@ -2,12 +2,15 @@ import { useState } from 'react'
 import { supabase } from './supabaseClient'
 
 export default function ScaleControlModal({ scaleId, itemName, onClose }) {
-  const [calGrams, setCalGrams] = useState('')
-  const [status,   setStatus]   = useState(null)  // { msg, type }
-  const [busy,     setBusy]     = useState(false)
+  const [calGrams,  setCalGrams]  = useState('')
+  const [itemCount, setItemCount] = useState('')
+  const [status,    setStatus]    = useState(null)   // { msg, type } — for Tare/Cal
+  const [avgStatus, setAvgStatus] = useState(null)   // { msg, type } — for Avg Weight
+  const [busy,      setBusy]      = useState(false)
+
+  // ── Tare / Cal helpers ───────────────────────────────────────────────────
 
   async function waitForDone(commandId) {
-    // Poll every 10s for up to 4 minutes
     for (let i = 0; i < 24; i++) {
       await new Promise(r => setTimeout(r, 10000))
       const { data } = await supabase
@@ -22,7 +25,6 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
         setBusy(false)
         return
       }
-      // still pending — update waiting message with countdown
       setStatus({ msg: `Waiting for Pi to relay to scale... (check ${i + 1}/24)`, type: 'info' })
     }
     setStatus({ msg: 'Timed out — Pi may be offline or scale unreachable.', type: 'error' })
@@ -57,7 +59,61 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
     sendCommand('CAL', g)
   }
 
+  // ── Avg weight helper ────────────────────────────────────────────────────
+
+  async function handleCalcAvg() {
+    const count = parseInt(itemCount)
+    if (!count || count <= 0) {
+      setAvgStatus({ msg: 'Enter how many items are on the scale.', type: 'error' })
+      return
+    }
+
+    setAvgStatus({ msg: 'Reading latest weight from scale...', type: 'info' })
+
+    const { data, error } = await supabase
+      .from('readings')
+      .select('weight_g, created_at')
+      .eq('scale_id', scaleId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error || !data) {
+      setAvgStatus({ msg: 'No weight reading found. Make sure the scale is sending data.', type: 'error' })
+      return
+    }
+
+    const totalGrams = parseFloat(data.weight_g)
+    if (totalGrams <= 0) {
+      setAvgStatus({ msg: 'Scale is reading 0g or negative — make sure items are on the scale and it is tared.', type: 'error' })
+      return
+    }
+
+    const avgG = Math.round(totalGrams / count)
+
+    const { error: updateError } = await supabase
+      .from('scales')
+      .update({ unit_weight_g: avgG })
+      .eq('id', scaleId)
+
+    if (updateError) {
+      setAvgStatus({ msg: `Error saving: ${updateError.message}`, type: 'error' })
+      return
+    }
+
+    const readingAge = Math.round((Date.now() - new Date(data.created_at)) / 1000)
+    setAvgStatus({
+      msg: `✓ Avg weight set to ${avgG}g per item (${totalGrams.toFixed(0)}g ÷ ${count} items). Reading was ${readingAge}s ago. Dashboard updated.`,
+      type: 'success',
+    })
+    setItemCount('')
+  }
+
+  // ── Shared status color map ──────────────────────────────────────────────
+
   const statusColor = { info: '#0369a1', success: '#15803d', error: '#b91c1c' }
+
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -75,9 +131,10 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
           background: '#fff', borderRadius: 14, padding: 28,
           width: '100%', maxWidth: 400,
           boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          maxHeight: '90vh', overflowY: 'auto',
         }}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700 }}>Scale Controls</div>
@@ -89,7 +146,7 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
           >✕</button>
         </div>
 
-        {/* Tare */}
+        {/* ── Tare ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Tare (Zero the Scale)</div>
           <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10 }}>
@@ -107,7 +164,7 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
 
         <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0 0 20px' }} />
 
-        {/* Calibrate */}
+        {/* ── Calibrate ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Calibrate</div>
           <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10 }}>
@@ -137,20 +194,64 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
           </div>
         </div>
 
-        {/* Status */}
+        {/* ── Tare/Cal status ── */}
         {status && (
           <div style={{
             fontSize: 13, padding: '10px 12px', borderRadius: 8,
             background: '#f8fafc', color: statusColor[status.type],
-            marginTop: 4,
+            marginBottom: 16,
           }}>
             {status.msg}
           </div>
         )}
 
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-          Commands relay through the Pi over LoRa. Scale responds within ~30s if Pi is running.
+        <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0 0 20px' }} />
+
+        {/* ── Avg Weight per Item ── */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Set Avg Weight per Item</div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10 }}>
+            After taring and calibrating, place your items on the scale and wait
+            for the next reading (~10s). Enter how many items are on the scale,
+            then click Calculate. This updates the unit weight used for all On Shelf counts.
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              type="number"
+              placeholder="Number of items on scale"
+              value={itemCount}
+              onChange={e => setItemCount(e.target.value)}
+              style={{
+                flex: 1, padding: '8px 10px',
+                border: '1.5px solid #e2e8f0', borderRadius: 8,
+                fontSize: 14,
+              }}
+            />
+            <button
+              onClick={handleCalcAvg}
+              className="btn btn-dark"
+            >
+              Calculate
+            </button>
+          </div>
+
+          {/* Avg weight status */}
+          {avgStatus && (
+            <div style={{
+              fontSize: 13, padding: '10px 12px', borderRadius: 8,
+              background: '#f8fafc', color: statusColor[avgStatus.type],
+            }}>
+              {avgStatus.msg}
+            </div>
+          )}
         </div>
+
+        {/* ── Footer note ── */}
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+          Tare and Calibrate relay through the Pi over LoRa. Scale responds within ~30s if Pi is running.
+          Avg Weight is calculated directly from the latest reading in the database — no Pi needed.
+        </div>
+
       </div>
     </div>
   )
