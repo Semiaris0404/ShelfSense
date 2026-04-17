@@ -7,6 +7,8 @@
   padding: 24px 32px;
   max-width: 900px;
   margin: 0 auto;
+  /* when in split layout the parent controls width */
+  min-width: 0;
 }
 
 /* ─── legend ────────────────────────────────────────────────────────────── */
@@ -40,9 +42,14 @@
   flex-shrink: 0;
 }
 
-.leg-static {
-  background: #64748b;
+.leg-rect {
+  width: 22px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
 }
+
 
 .leg-hint {
   margin-left: auto;
@@ -70,16 +77,6 @@
   max-height: 70vh;
 }
 
-/* ─── pulse animation for live nodes ────────────────────────────────────── */
-
-.pulse-ring {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { r: 2.8; opacity: 0.4; }
-  50%       { r: 3.8; opacity: 0.15; }
-}
 
 /* ─── popup ─────────────────────────────────────────────────────────────── */
 
@@ -172,8 +169,8 @@
   border-color: #fca5a5;
 }
 
-.popup-static-note {
-  margin-top: 6px;
+.popup-hint {
+  margin-top: 8px;
   font-size: 11px;
   color: #9ca3af;
   font-style: italic;
