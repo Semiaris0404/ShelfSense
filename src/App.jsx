@@ -28,8 +28,9 @@ function calcMetrics(weightG, unitWeightG, totalInvoiced, totalCheckedOut, basel
 
   const lowStock   = onShelf !== null && onShelf > 0 && onShelf <= 3
   const outOfStock = onShelf !== null && onShelf === 0
+  const overStock  = hasBaseline && onShelf !== null && onShelf > (baselineUnits || 0)
 
-  return { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline, totalInventory }
+  return { onShelf, inStorage, lowStock, outOfStock, overStock, unaccounted, hasBaseline, totalInventory }
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -431,10 +432,10 @@ function ScaleCard({
   const totalChk = checkouts[id] || 0
   const wt       = readings[id] ?? null
 
-  const { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline, totalInventory } =
+  const { onShelf, inStorage, lowStock, outOfStock, overStock, unaccounted, hasBaseline, totalInventory } =
     calcMetrics(wt, cfg.unit_weight_g || 1, totalInv, totalChk, cfg.baseline_units || 0, cfg.baseline_checkout_count || 0)
 
-  const hasAnyAlert = outOfStock || lowStock || unaccounted > 0
+  const hasAnyAlert = outOfStock || lowStock || unaccounted > 0 || overStock
 
   const body = (
     <>
@@ -465,6 +466,26 @@ function ScaleCard({
 
       {/* ─ 6 stat boxes ─ */}
       <div className="stats">
+        <div className={`stat ${outOfStock ? 'stat-empty' : overStock ? 'stat-over' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
+          <div className="sv">{onShelf ?? '—'}</div>
+          <div className="sl">On Shelf</div>
+          {onShelf !== null && <div className="ss">{overStock ? 'Above baseline' : `${onShelf} item${onShelf !== 1 ? 's' : ''}`}</div>}
+        </div>
+        <div className="stat">
+          <div className="sv">{inStorage ?? '—'}</div>
+          <div className="sl">In Storage</div>
+          <div className="ss">invoice − shelf − sold</div>
+        </div>
+        <div className={`stat ${!hasBaseline ? 'stat-neutral' : unaccounted > 0 ? 'stat-disc-warn' : 'stat-disc-ok'}`}>
+          <div className="sv">{hasBaseline ? unaccounted : '—'}</div>
+          <div className="sl">Unaccounted</div>
+          <div className="ss">{!hasBaseline ? 'No baseline' : unaccounted > 0 ? 'Investigate' : 'OK'}</div>
+        </div>
+        <div className="stat">
+          <div className="sv">{totalInventory ?? '—'}</div>
+          <div className="sl">Total Inventory</div>
+          <div className="ss">invoiced − sold</div>
+        </div>
         <div className="stat stat-total">
           <div className="sv">{totalInv}</div>
           <div className="sl">Total Invoiced</div>
@@ -472,26 +493,6 @@ function ScaleCard({
         <div className="stat">
           <div className="sv">{totalChk}</div>
           <div className="sl">Checked Out</div>
-        </div>
-        <div className="stat">
-          <div className="sv">{totalInventory ?? '—'}</div>
-          <div className="sl">Total Inventory</div>
-          <div className="ss">invoiced − sold</div>
-        </div>
-        <div className="stat">
-          <div className="sv">{inStorage ?? '—'}</div>
-          <div className="sl">In Storage</div>
-          <div className="ss">invoice − shelf − sold</div>
-        </div>
-        <div className={`stat ${outOfStock ? 'stat-empty' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
-          <div className="sv">{onShelf ?? '—'}</div>
-          <div className="sl">On Shelf</div>
-          {onShelf !== null && <div className="ss">{onShelf} item{onShelf !== 1 ? 's' : ''}</div>}
-        </div>
-        <div className={`stat ${!hasBaseline ? 'stat-neutral' : unaccounted > 0 ? 'stat-disc-warn' : 'stat-disc-ok'}`}>
-          <div className="sv">{hasBaseline ? unaccounted : '—'}</div>
-          <div className="sl">Unaccounted</div>
-          <div className="ss">{!hasBaseline ? 'No baseline' : unaccounted > 0 ? 'Investigate' : 'OK'}</div>
         </div>
       </div>
 
@@ -515,6 +516,12 @@ function ScaleCard({
         <div className="banner banner-red">
           {unaccounted} item(s) removed from shelf with no POS record since last baseline.
           Possible cause: theft, spoilage/disposal, or misplacement to another shelf.
+        </div>
+      )}
+      {overStock && (
+        <div className="banner banner-amber">
+          Shelf shows {onShelf} item(s) — {onShelf - (cfg.baseline_units || 0)} above the baseline of {cfg.baseline_units}.
+          Verify the baseline is current or check for a mis-scan.
         </div>
       )}
 
