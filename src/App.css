@@ -134,6 +134,8 @@ body {
 .stat-shelf  .sv { color: var(--teal); }
 .stat-low    { border-color: #fcd34d; background: #fffbeb; }
 .stat-low    .sv { color: var(--amber); }
+.stat-over   { border-color: #fde047; background: #fefce8; }
+.stat-over   .sv { color: #ca8a04; }
 .stat-empty  { border-color: #fca5a5; background: #fef2f2; }
 .stat-empty  .sv { color: var(--red); }
 .stat-total .sv { color: var(--blue); }
