@@ -20,16 +20,14 @@ function calcMetrics(weightG, unitWeightG, totalInvoiced, totalCheckedOut, basel
     unaccounted = Math.max(0, removedFromShelf - checkoutsSinceBase)
   }
 
+  const totalInventory = Math.max(0, totalInvoiced - totalCheckedOut)
+
   const inStorage = onShelf !== null
     ? Math.max(0, totalInvoiced - onShelf - totalCheckedOut - unaccounted)
-    : null
+    : totalInventory
 
   const lowStock   = onShelf !== null && onShelf > 0 && onShelf <= 3
   const outOfStock = onShelf !== null && onShelf === 0
-
-  const totalInventory = onShelf !== null
-    ? Math.max(0, totalInvoiced - totalCheckedOut)
-    : null
 
   return { onShelf, inStorage, lowStock, outOfStock, unaccounted, hasBaseline, totalInventory }
 }
