@@ -123,10 +123,12 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
         background: 'rgba(0,0,0,0.45)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 1000,
+        padding: 16,
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
+        className="scale-modal-box"
         style={{
           background: '#fff', borderRadius: 14, padding: 28,
           width: '100%', maxWidth: 400,
