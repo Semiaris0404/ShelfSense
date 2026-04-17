@@ -465,6 +465,16 @@ function ScaleCard({
 
       {/* ─ 6 stat boxes ─ */}
       <div className="stats">
+        <div className={`stat ${outOfStock ? 'stat-empty' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
+          <div className="sv">{onShelf ?? '—'}</div>
+          <div className="sl">On Shelf</div>
+          {onShelf !== null && <div className="ss">{onShelf} item{onShelf !== 1 ? 's' : ''}</div>}
+        </div>
+        <div className={`stat ${!hasBaseline ? 'stat-neutral' : unaccounted > 0 ? 'stat-disc-warn' : 'stat-disc-ok'}`}>
+          <div className="sv">{hasBaseline ? unaccounted : '—'}</div>
+          <div className="sl">Unaccounted</div>
+          <div className="ss">{!hasBaseline ? 'No baseline' : unaccounted > 0 ? 'Investigate' : 'OK'}</div>
+        </div>
         <div className="stat stat-total">
           <div className="sv">{totalInv}</div>
           <div className="sl">Total Invoiced</div>
@@ -482,16 +492,6 @@ function ScaleCard({
           <div className="sv">{inStorage ?? '—'}</div>
           <div className="sl">In Storage</div>
           <div className="ss">invoice − shelf − sold</div>
-        </div>
-        <div className={`stat ${outOfStock ? 'stat-empty' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
-          <div className="sv">{onShelf ?? '—'}</div>
-          <div className="sl">On Shelf</div>
-          {onShelf !== null && <div className="ss">{onShelf} item{onShelf !== 1 ? 's' : ''}</div>}
-        </div>
-        <div className={`stat ${!hasBaseline ? 'stat-neutral' : unaccounted > 0 ? 'stat-disc-warn' : 'stat-disc-ok'}`}>
-          <div className="sv">{hasBaseline ? unaccounted : '—'}</div>
-          <div className="sl">Unaccounted</div>
-          <div className="ss">{!hasBaseline ? 'No baseline' : unaccounted > 0 ? 'Investigate' : 'OK'}</div>
         </div>
       </div>
 
