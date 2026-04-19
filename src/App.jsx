@@ -101,6 +101,58 @@ export default function App() {
     }
   }, [])
 
+  const refreshLiveData = useCallback(async () => {
+    const { data: cfgData } = await supabase.from('scales').select('*')
+    const ids = (cfgData || []).map(s => s.id)
+
+    setScales(prev => {
+      const next = { ...prev }
+      ;(cfgData || []).forEach(row => {
+        next[row.id] = {
+          id: row.id, item_name: 'Unknown Item', unit_weight_g: 100,
+          shelf_location: '', baseline_units: 0, baseline_checkout_count: 0,
+          tare_offset: 0, K_calibration: null,
+          ...(next[row.id] || {}),
+          ...row,
+        }
+      })
+      return next
+    })
+
+    setEditCfg(prev => {
+      const next = { ...prev }
+      ;(cfgData || []).forEach(row => {
+        next[row.id] = {
+          id: row.id, item_name: 'Unknown Item', unit_weight_g: 100,
+          shelf_location: '', baseline_units: 0, baseline_checkout_count: 0,
+          tare_offset: 0, K_calibration: null,
+          ...(next[row.id] || {}),
+          ...row,
+        }
+      })
+      return next
+    })
+
+    const newReadings = {}, newInv = {}, newChk = {}
+    for (const id of ids) {
+      const { data: rd } = await supabase
+        .from('readings').select('raw_value')
+        .eq('scale_id', id).order('created_at', { ascending: false }).limit(1)
+      newReadings[id] = rd && rd.length > 0 ? parseFloat(rd[0].raw_value) : null
+
+      const { data: inv } = await supabase.from('invoices').select('quantity').eq('scale_id', id)
+      newInv[id] = inv ? inv.reduce((s, r) => s + r.quantity, 0) : 0
+
+      const { data: chk } = await supabase.from('checkouts').select('quantity').eq('scale_id', id)
+      newChk[id] = chk ? chk.reduce((s, r) => s + r.quantity, 0) : 0
+    }
+
+    setReadings(newReadings)
+    setInvoices(newInv)
+    setCheckouts(newChk)
+    ids.forEach(id => subscribeToScale(id))
+  }, [subscribeToScale])
+
   const loadAll = useCallback(async () => {
     const { data: cfgData } = await supabase.from('scales').select('*')
     const ids = (cfgData || []).map(s => s.id)
@@ -145,6 +197,14 @@ export default function App() {
 
   useEffect(() => { loadAll() }, [loadAll])
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      refreshLiveData()
+    }, 5000)
+
+    return () => window.clearInterval(intervalId)
+  }, [refreshLiveData])
+
   // ── flash helper ───────────────────────────────────────────────────────────
   const showFlash = (key, msg, type = 'success') => {
     setFlash(p => ({ ...p, [key]: { msg, type } }))
@@ -172,7 +232,11 @@ export default function App() {
     const qty = parseInt(invInput[id])
     if (!qty || qty <= 0) return showFlash(id + '_inv', 'Enter a valid quantity', 'warn')
     const { error } = await supabase.from('invoices').insert({ scale_id: id, quantity: qty })
-    if (!error) { setInvInput(p => ({ ...p, [id]: '' })); showFlash(id + '_inv', `Invoiced +${qty} units`) }
+    if (!error) {
+      setInvoices(p => ({ ...p, [id]: (p[id] || 0) + qty }))
+      setInvInput(p => ({ ...p, [id]: '' }))
+      showFlash(id + '_inv', `Invoiced +${qty} units`)
+    }
     else showFlash(id + '_inv', 'Error: ' + error.message, 'error')
   }
 
@@ -183,6 +247,7 @@ export default function App() {
     if (!qty || qty <= 0) return showFlash(id + '_pos', 'Enter a valid quantity', 'warn')
     const { error } = await supabase.from('checkouts').insert({ scale_id: id, quantity: qty })
     if (error) return showFlash(id + '_pos', 'Error: ' + error.message, 'error')
+    setCheckouts(p => ({ ...p, [id]: (p[id] || 0) + qty }))
     setChkInput(p => ({ ...p, [id]: '' }))
     if (onShelf !== null && qty > onShelf)
       showFlash(id + '_pos', `POS: ${qty} checked out. Note: scale shows only ${onShelf} on shelf.`, 'warn')
@@ -193,7 +258,11 @@ export default function App() {
     const v = parseFloat(wtInput[id])
     if (isNaN(v)) return showFlash(id + '_wt', 'Enter a raw load-cell value', 'warn')
     const { error } = await supabase.from('readings').insert({ scale_id: id, raw_value: v })
-    if (!error) { setWtInput(p => ({ ...p, [id]: '' })); showFlash(id + '_wt', `Raw value ${v} recorded`) }
+    if (!error) {
+      setReadings(p => ({ ...p, [id]: v }))
+      setWtInput(p => ({ ...p, [id]: '' }))
+      showFlash(id + '_wt', `Raw value ${v} recorded`)
+    }
     else showFlash(id + '_wt', 'Error: ' + error.message, 'error')
   }
 
@@ -203,6 +272,7 @@ export default function App() {
     const note = adjAddNote[id]?.trim() || 'Manual addition'
     const { error } = await supabase.from('invoices').insert({ scale_id: id, quantity: qty, note })
     if (!error) {
+      setInvoices(p => ({ ...p, [id]: (p[id] || 0) + qty }))
       setAdjAddQty(p => ({ ...p, [id]: '' })); setAdjAddNote(p => ({ ...p, [id]: '' }))
       showFlash(id + '_adj_add', `+${qty} unit(s) added to inventory`)
     } else showFlash(id + '_adj_add', 'Error: ' + error.message, 'error')
@@ -213,6 +283,7 @@ export default function App() {
     if (!qty || qty <= 0) return showFlash(id + '_adj_rem', 'Enter a valid quantity', 'warn')
     const { error } = await supabase.from('checkouts').insert({ scale_id: id, quantity: qty })
     if (!error) {
+      setCheckouts(p => ({ ...p, [id]: (p[id] || 0) + qty }))
       setAdjRemQty(p => ({ ...p, [id]: '' })); setAdjRemNote(p => ({ ...p, [id]: '' }))
       showFlash(id + '_adj_rem', `${qty} unit(s) discarded / removed`)
     } else showFlash(id + '_adj_rem', 'Error: ' + error.message, 'error')
