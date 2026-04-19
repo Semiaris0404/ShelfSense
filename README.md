@@ -119,7 +119,7 @@ curl -X POST \
   'https://rlcvrkeozciihjhstbop.supabase.co/rest/v1/readings' \
   -H 'apikey: YOUR_ANON_KEY' \
   -H 'Content-Type: application/json' \
-  -d '{"scale_id":"scale_1","weight_g":1500.0}'
+  -d '{"scale_id":"scale_1","raw_value":123456}'
 ```
 
 ---
@@ -142,12 +142,13 @@ void setup() {
 }
 
 void loop() {
-  float weight_g = scale.get_units(5);  // average 5 readings
-  if (weight_g < 0) weight_g = 0;
+  // Send the RAW load-cell value, not grams.
+  // Tare and calibration are computed in the dashboard from this raw value.
+  long raw = scale.read_average(5);  // average 5 ADC samples
 
   StaticJsonDocument<64> doc;
   doc["id"] = SCALE_ID;
-  doc["w"]  = weight_g;
+  doc["r"]  = raw;
 
   String packet;
   serializeJson(doc, packet);
@@ -155,7 +156,7 @@ void loop() {
   LoRa.print(packet);
   LoRa.endPacket();
 
-  delay(600000);  // 10 minutes
+  delay(10000);  // 10 seconds
 }
 ```
 
@@ -164,7 +165,7 @@ void loop() {
 ## How discrepancy is calculated
 
 ```
-items_on_shelf   = scale_reading_g ÷ unit_weight_g   (from LoRa)
+items_on_shelf   = (raw_value − tare_offset) ÷ K_calibration   (from LoRa, computed live)
 items_checked_out = cumulative POS clicks              (from dashboard)
 total_invoiced   = cumulative invoice entries          (from dashboard)
 items_in_storage = total_invoiced − on_shelf − checked_out
