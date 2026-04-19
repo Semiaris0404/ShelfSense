@@ -7,10 +7,16 @@ import ScaleControlModal from './ScaleControlModal'
 
 // ─── Core metric calculation ─────────────────────────────────────────────────
 
-function calcMetrics(weightG, unitWeightG, totalInvoiced, totalCheckedOut, baselineUnits, baselineCheckoutCount) {
-  const onShelf = weightG !== null
-    ? Math.max(0, Math.round(weightG / (unitWeightG || 1)))
-    : null
+// units = round((raw - tare_offset) / K_calibration)
+// Returns null if raw or K is missing/invalid (uncalibrated scale shows "—").
+function rawToUnits(raw, tareOffset, kCalibration) {
+  if (raw === null || raw === undefined) return null
+  if (!kCalibration || kCalibration <= 0) return null
+  return Math.max(0, Math.round((raw - (tareOffset || 0)) / kCalibration))
+}
+
+function calcMetrics(rawValue, tareOffset, kCalibration, totalInvoiced, totalCheckedOut, baselineUnits, baselineCheckoutCount) {
+  const onShelf = rawToUnits(rawValue, tareOffset, kCalibration)
 
   const hasBaseline = (baselineUnits || 0) > 0
   let unaccounted = 0
@@ -72,7 +78,7 @@ export default function App() {
     const ch = supabase.channel(`rt-${id}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'readings', filter: `scale_id=eq.${id}` },
-        ({ new: row }) => setReadings(p => ({ ...p, [id]: parseFloat(row.weight_g) })))
+        ({ new: row }) => setReadings(p => ({ ...p, [id]: parseFloat(row.raw_value) })))
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'invoices', filter: `scale_id=eq.${id}` },
         ({ new: row }) => setInvoices(p => ({ ...p, [id]: (p[id] || 0) + row.quantity })))
@@ -104,6 +110,7 @@ export default function App() {
       cfgMap[row.id] = {
         id: row.id, item_name: 'Unknown Item', unit_weight_g: 100,
         shelf_location: '', baseline_units: 0, baseline_checkout_count: 0,
+        tare_offset: 0, K_calibration: null,
         ...row,
       }
     })
@@ -113,9 +120,9 @@ export default function App() {
     const newReadings = {}, newInv = {}, newChk = {}
     for (const id of ids) {
       const { data: rd } = await supabase
-        .from('readings').select('weight_g')
+        .from('readings').select('raw_value')
         .eq('scale_id', id).order('created_at', { ascending: false }).limit(1)
-      newReadings[id] = rd && rd.length > 0 ? parseFloat(rd[0].weight_g) : null
+      newReadings[id] = rd && rd.length > 0 ? parseFloat(rd[0].raw_value) : null
 
       const { data: inv } = await supabase.from('invoices').select('quantity').eq('scale_id', id)
       newInv[id] = inv ? inv.reduce((s, r) => s + r.quantity, 0) : 0
@@ -147,9 +154,9 @@ export default function App() {
   // ── actions ────────────────────────────────────────────────────────────────
 
   const setBaseline = async (id) => {
-    const cfg = scales[id], wt = readings[id]
-    if (wt === null) return showFlash(id + '_base', 'Submit a weight reading first', 'warn')
-    const units = Math.max(0, Math.round(wt / (cfg.unit_weight_g || 1)))
+    const cfg = scales[id], raw = readings[id]
+    const units = rawToUnits(raw, cfg.tare_offset, cfg.K_calibration)
+    if (units === null) return showFlash(id + '_base', 'Need a raw reading and a calibrated scale first', 'warn')
     const currentCheckouts = checkouts[id] || 0
     const { error } = await supabase.from('scales')
       .update({ baseline_units: units, baseline_checkout_count: currentCheckouts }).eq('id', id)
@@ -171,8 +178,8 @@ export default function App() {
 
   const doCheckout = async (id) => {
     const qty = parseInt(chkInput[id])
-    const cfg = scales[id], wt = readings[id]
-    const onShelf = wt !== null ? Math.max(0, Math.round(wt / (cfg.unit_weight_g || 1))) : null
+    const cfg = scales[id], raw = readings[id]
+    const onShelf = rawToUnits(raw, cfg.tare_offset, cfg.K_calibration)
     if (!qty || qty <= 0) return showFlash(id + '_pos', 'Enter a valid quantity', 'warn')
     const { error } = await supabase.from('checkouts').insert({ scale_id: id, quantity: qty })
     if (error) return showFlash(id + '_pos', 'Error: ' + error.message, 'error')
@@ -183,10 +190,10 @@ export default function App() {
   }
 
   const submitWeight = async (id) => {
-    const w = parseFloat(wtInput[id])
-    if (isNaN(w) || w < 0) return showFlash(id + '_wt', 'Enter weight in grams', 'warn')
-    const { error } = await supabase.from('readings').insert({ scale_id: id, weight_g: w })
-    if (!error) { setWtInput(p => ({ ...p, [id]: '' })); showFlash(id + '_wt', `Weight ${w}g recorded`) }
+    const v = parseFloat(wtInput[id])
+    if (isNaN(v)) return showFlash(id + '_wt', 'Enter a raw load-cell value', 'warn')
+    const { error } = await supabase.from('readings').insert({ scale_id: id, raw_value: v })
+    if (!error) { setWtInput(p => ({ ...p, [id]: '' })); showFlash(id + '_wt', `Raw value ${v} recorded`) }
     else showFlash(id + '_wt', 'Error: ' + error.message, 'error')
   }
 
@@ -220,6 +227,8 @@ export default function App() {
       shelf_location:          cfg.shelf_location?.trim() || '',
       baseline_units:          current.baseline_units || 0,
       baseline_checkout_count: current.baseline_checkout_count || 0,
+      tare_offset:             current.tare_offset ?? 0,
+      K_calibration:           current.K_calibration ?? null,
     }
     const { error } = await supabase.from('scales').upsert(payload)
     if (!error) { setScales(p => ({ ...p, [id]: { ...p[id], ...payload } })); showFlash(id + '_cfg', 'Config saved') }
@@ -250,6 +259,7 @@ export default function App() {
       unit_weight_g: parseFloat(addForm.unit_weight_g) || 100,
       shelf_location: addForm.shelf_location.trim(),
       baseline_units: 0, baseline_checkout_count: 0,
+      tare_offset: 0, K_calibration: null,
     }
     const { error } = await supabase.from('scales').insert(newConfig)
     setAddLoading(false)
@@ -430,10 +440,11 @@ function ScaleCard({
   const edit     = editCfg[id] || cfg
   const totalInv = invoices[id]  || 0
   const totalChk = checkouts[id] || 0
-  const wt       = readings[id] ?? null
+  const raw      = readings[id] ?? null
+  const isCalibrated = !!cfg.K_calibration && cfg.K_calibration > 0
 
   const { onShelf, inStorage, lowStock, outOfStock, overStock, unaccounted, hasBaseline, totalInventory } =
-    calcMetrics(wt, cfg.unit_weight_g || 1, totalInv, totalChk, cfg.baseline_units || 0, cfg.baseline_checkout_count || 0)
+    calcMetrics(raw, cfg.tare_offset, cfg.K_calibration, totalInv, totalChk, cfg.baseline_units || 0, cfg.baseline_checkout_count || 0)
 
   const hasAnyAlert = outOfStock || lowStock || unaccounted > 0 || overStock
 
@@ -497,7 +508,12 @@ function ScaleCard({
       </div>
 
       {/* ─ alert banners ─ */}
-      {!hasBaseline && wt !== null && (
+      {!isCalibrated && raw !== null && (
+        <div className="banner banner-amber">
+          Scale is uncalibrated — open Scale Controls and run Tare + Calibrate to start showing unit counts.
+        </div>
+      )}
+      {isCalibrated && !hasBaseline && raw !== null && (
         <div className="banner banner-info">
           Discrepancy tracking inactive. Click "Set Shelf Baseline" after stocking the shelf to start monitoring for theft and spoilage.
         </div>
@@ -568,10 +584,10 @@ function ScaleCard({
 
         <div className="action-group">
           <div className="ag-label">
-            Manual Weight Input<span className="hint"> — LoRa auto-fills this in production</span>
+            Manual Raw Value Input<span className="hint"> — LoRa auto-fills this in production</span>
           </div>
           <div className="ag-row">
-            <input type="number" min="0" step="0.1" placeholder="Weight in grams"
+            <input type="number" step="any" placeholder="Raw load-cell value"
               value={wtInput[id] ?? ''}
               onChange={e => setWtInput(p => ({ ...p, [id]: e.target.value }))}
               onKeyDown={e => e.key === 'Enter' && submitWeight(id)} />
@@ -639,7 +655,7 @@ function ScaleCard({
               onChange={e => setEditCfg(p => ({ ...p, [id]: { ...p[id], item_name: e.target.value } }))} />
           </label>
           <label>
-            <span>Unit Weight (g)</span>
+            <span>Unit Weight (g)<span className="hint"> — only used for grams-mode calibration</span></span>
             <input type="number" value={edit.unit_weight_g || ''}
               onChange={e => setEditCfg(p => ({ ...p, [id]: { ...p[id], unit_weight_g: e.target.value } }))} />
           </label>
@@ -647,6 +663,18 @@ function ScaleCard({
             <span>Shelf Location</span>
             <input value={edit.shelf_location || ''}
               onChange={e => setEditCfg(p => ({ ...p, [id]: { ...p[id], shelf_location: e.target.value } }))} />
+          </label>
+          <label>
+            <span>Tare Offset<span className="hint"> — set via Tare button</span></span>
+            <input type="number" value={cfg.tare_offset ?? ''} readOnly />
+          </label>
+          <label>
+            <span>K Calibration (raw / unit)<span className="hint"> — set via Calibrate button</span></span>
+            <input type="number" value={cfg.K_calibration ?? ''} readOnly />
+          </label>
+          <label>
+            <span>Latest Raw Reading</span>
+            <input type="number" value={raw ?? ''} readOnly />
           </label>
         </div>
         <div className="config-btns">
@@ -667,7 +695,7 @@ function ScaleCard({
   '${import.meta.env.VITE_SUPABASE_URL}/rest/v1/readings' \\
   -H 'apikey: ${import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(0, 40)}...' \\
   -H 'Content-Type: application/json' \\
-  -d '{"scale_id":"${id}","weight_g":1500.0}'`}
+  -d '{"scale_id":"${id}","raw_value":123456}'`}
         </pre>
       </details>
     </>

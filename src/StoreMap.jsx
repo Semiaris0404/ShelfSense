@@ -74,14 +74,16 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
 
   // Build live node data from props
   const allNodes = Object.entries(scales || {}).map(([id, cfg]) => {
-    const wt        = readings?.[id] ?? null
-    const unitW     = cfg.unit_weight_g || 1
-    const onShelf   = wt !== null ? Math.max(0, Math.round(wt / unitW)) : null
+    const raw       = readings?.[id] ?? null
+    const K         = cfg.K_calibration
+    const onShelf   = (raw !== null && K && K > 0)
+      ? Math.max(0, Math.round((raw - (cfg.tare_offset || 0)) / K))
+      : null
     const totalInv  = invoices?.[id]  || 0
     const totalChk  = checkouts?.[id] || 0
     const inStorage = onShelf !== null ? Math.max(0, totalInv - onShelf - totalChk) : null
     const lowStock  = onShelf !== null && onShelf <= 3
-    return { id, item: cfg.item_name, onShelf, inStorage, totalChk, totalInv, lowStock, wt }
+    return { id, item: cfg.item_name, onShelf, inStorage, totalChk, totalInv, lowStock, raw }
   })
 
   // ── status color ──────────────────────────────────────────────────────────

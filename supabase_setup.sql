@@ -6,16 +6,20 @@
 -- 1. TABLES
 
 create table if not exists public.scales (
-  id            text primary key,
-  item_name     text not null default 'Unknown Item',
-  unit_weight_g numeric not null default 100,
-  shelf_location text default ''
+  id                      text primary key,
+  item_name               text not null default 'Unknown Item',
+  unit_weight_g           numeric not null default 100,    -- only used for grams-mode calibration
+  shelf_location          text default '',
+  baseline_units          integer not null default 0,
+  baseline_checkout_count integer not null default 0,
+  tare_offset             float8  not null default 0,      -- raw value at zero
+  K_calibration           float8                            -- raw counts per unit (null = uncalibrated)
 );
 
 create table if not exists public.readings (
   id         bigserial primary key,
   scale_id   text references public.scales(id) on delete cascade,
-  weight_g   numeric not null,
+  raw_value  float8 not null,                              -- raw load-cell ADC count from HX711
   created_at timestamptz default now()
 );
 
