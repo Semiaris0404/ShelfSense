@@ -12,9 +12,13 @@ create table if not exists public.scales (
   shelf_location          text default '',
   baseline_units          integer not null default 0,
   baseline_checkout_count integer not null default 0,
+  raw_value               float8,
   tare_offset             float8  not null default 0,      -- raw value at zero
   K_calibration           float8                            -- raw counts per unit (null = uncalibrated)
 );
+
+alter table public.scales
+  add column if not exists raw_value float8;
 
 create table if not exists public.readings (
   id         bigserial primary key,

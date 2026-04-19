@@ -4,7 +4,7 @@ pi_gateway.py
 ─────────────
 Runs on Raspberry Pi with LoRa HAT (SX1276 / LLCC68).
 Listens for JSON packets from the ESP32 scale nodes,
-then forwards weight readings directly to Supabase REST API.
+then stores each raw reading in history and updates the current scale snapshot.
 The React dashboard receives the update instantly via Supabase Realtime.
 
 Requirements:
@@ -38,20 +38,31 @@ log = logging.getLogger(__name__)
 
 # ── Supabase sender ──────────────────────────────────────────────────────────
 
-def send_reading(scale_id: str, weight_g: float) -> bool:
-    """Insert one weight reading into Supabase. Returns True on success."""
+def send_reading(scale_id: str, raw_value: float) -> bool:
+    """Store one historical reading and update the latest scale snapshot."""
     try:
-        r = requests.post(
+        reading_response = requests.post(
             f"{SUPABASE_URL}/rest/v1/readings",
             headers=HEADERS,
-            json={"scale_id": scale_id, "weight_g": round(weight_g, 2)},
+            json={"scale_id": scale_id, "raw_value": round(raw_value, 2)},
             timeout=10,
         )
-        if r.status_code in (200, 201):
-            log.info(f"[{scale_id}] {weight_g:.2f} g → Supabase OK")
+        if reading_response.status_code not in (200, 201):
+            log.error(f"[{scale_id}] readings insert failed {reading_response.status_code}: {reading_response.text}")
+            return False
+
+        snapshot_response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/scales",
+            headers=HEADERS,
+            params={"id": f"eq.{scale_id}"},
+            json={"raw_value": round(raw_value, 2)},
+            timeout=10,
+        )
+        if snapshot_response.status_code in (200, 204):
+            log.info(f"[{scale_id}] raw={raw_value:.2f} → history + snapshot OK")
             return True
         else:
-            log.error(f"[{scale_id}] Supabase error {r.status_code}: {r.text}")
+            log.error(f"[{scale_id}] scales update failed {snapshot_response.status_code}: {snapshot_response.text}")
             return False
     except requests.RequestException as e:
         log.error(f"Network error: {e}")
@@ -116,8 +127,8 @@ def run_simulation():
     while True:
         for scale_id, w in base.items():
             # Small random drift to simulate real sensor noise
-            weight = max(0, w + random.uniform(-20, 20))
-            send_reading(scale_id, weight)
+            raw_value = max(0, w + random.uniform(-20, 20))
+            send_reading(scale_id, raw_value)
         time.sleep(10)
 
 
