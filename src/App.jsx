@@ -77,9 +77,6 @@ export default function App() {
     if (channelsRef.current[id]) return
     const ch = supabase.channel(`rt-${id}`)
       .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'readings', filter: `scale_id=eq.${id}` },
-        ({ new: row }) => setReadings(p => ({ ...p, [id]: parseFloat(row.raw_value) })))
-      .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'invoices', filter: `scale_id=eq.${id}` },
         ({ new: row }) => setInvoices(p => ({ ...p, [id]: (p[id] || 0) + row.quantity })))
       .on('postgres_changes',
@@ -88,6 +85,7 @@ export default function App() {
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'scales', filter: `id=eq.${id}` },
         ({ new: row }) => {
+          setReadings(p => ({ ...p, [id]: row.raw_value === null || row.raw_value === undefined ? null : parseFloat(row.raw_value) }))
           setScales(p => ({ ...p, [id]: { ...p[id], ...row } }))
           setEditCfg(p => ({ ...p, [id]: { ...p[id], ...row } }))
         })
@@ -111,7 +109,7 @@ export default function App() {
         next[row.id] = {
           id: row.id, item_name: 'Unknown Item', unit_weight_g: 100,
           shelf_location: '', baseline_units: 0, baseline_checkout_count: 0,
-          tare_offset: 0, K_calibration: null,
+          tare_offset: 0, K_calibration: null, raw_value: null,
           ...(next[row.id] || {}),
           ...row,
         }
@@ -125,7 +123,7 @@ export default function App() {
         next[row.id] = {
           id: row.id, item_name: 'Unknown Item', unit_weight_g: 100,
           shelf_location: '', baseline_units: 0, baseline_checkout_count: 0,
-          tare_offset: 0, K_calibration: null,
+          tare_offset: 0, K_calibration: null, raw_value: null,
           ...(next[row.id] || {}),
           ...row,
         }
@@ -135,10 +133,8 @@ export default function App() {
 
     const newReadings = {}, newInv = {}, newChk = {}
     for (const id of ids) {
-      const { data: rd } = await supabase
-        .from('readings').select('raw_value')
-        .eq('scale_id', id).order('created_at', { ascending: false }).limit(1)
-      newReadings[id] = rd && rd.length > 0 ? parseFloat(rd[0].raw_value) : null
+      const rawValue = cfgData?.find(row => row.id === id)?.raw_value
+      newReadings[id] = rawValue === null || rawValue === undefined ? null : parseFloat(rawValue)
 
       const { data: inv } = await supabase.from('invoices').select('quantity').eq('scale_id', id)
       newInv[id] = inv ? inv.reduce((s, r) => s + r.quantity, 0) : 0
@@ -162,7 +158,7 @@ export default function App() {
       cfgMap[row.id] = {
         id: row.id, item_name: 'Unknown Item', unit_weight_g: 100,
         shelf_location: '', baseline_units: 0, baseline_checkout_count: 0,
-        tare_offset: 0, K_calibration: null,
+        tare_offset: 0, K_calibration: null, raw_value: null,
         ...row,
       }
     })
@@ -171,10 +167,8 @@ export default function App() {
 
     const newReadings = {}, newInv = {}, newChk = {}
     for (const id of ids) {
-      const { data: rd } = await supabase
-        .from('readings').select('raw_value')
-        .eq('scale_id', id).order('created_at', { ascending: false }).limit(1)
-      newReadings[id] = rd && rd.length > 0 ? parseFloat(rd[0].raw_value) : null
+      const rawValue = cfgMap[id]?.raw_value
+      newReadings[id] = rawValue === null || rawValue === undefined ? null : parseFloat(rawValue)
 
       const { data: inv } = await supabase.from('invoices').select('quantity').eq('scale_id', id)
       newInv[id] = inv ? inv.reduce((s, r) => s + r.quantity, 0) : 0
@@ -257,13 +251,17 @@ export default function App() {
   const submitWeight = async (id) => {
     const v = parseFloat(wtInput[id])
     if (isNaN(v)) return showFlash(id + '_wt', 'Enter a raw load-cell value', 'warn')
-    const { error } = await supabase.from('readings').insert({ scale_id: id, raw_value: v })
-    if (!error) {
+    const { error: insertError } = await supabase.from('readings').insert({ scale_id: id, raw_value: v })
+    if (insertError) return showFlash(id + '_wt', 'Error: ' + insertError.message, 'error')
+
+    const { error: updateError } = await supabase.from('scales').update({ raw_value: v }).eq('id', id)
+    if (!updateError) {
       setReadings(p => ({ ...p, [id]: v }))
+      setScales(p => ({ ...p, [id]: { ...p[id], raw_value: v } }))
       setWtInput(p => ({ ...p, [id]: '' }))
       showFlash(id + '_wt', `Raw value ${v} recorded`)
     }
-    else showFlash(id + '_wt', 'Error: ' + error.message, 'error')
+    else showFlash(id + '_wt', 'Error: ' + updateError.message, 'error')
   }
 
   const manualAdd = async (id) => {
@@ -298,6 +296,7 @@ export default function App() {
       shelf_location:          cfg.shelf_location?.trim() || '',
       baseline_units:          current.baseline_units || 0,
       baseline_checkout_count: current.baseline_checkout_count || 0,
+      raw_value:               current.raw_value ?? null,
       tare_offset:             current.tare_offset ?? 0,
       K_calibration:           current.K_calibration ?? null,
     }
@@ -308,13 +307,12 @@ export default function App() {
 
   const resetScale = async (id) => {
     if (!window.confirm(`Reset ALL data for ${scales[id]?.item_name}? This cannot be undone.`)) return
-    await supabase.from('readings').delete().eq('scale_id', id)
     await supabase.from('invoices').delete().eq('scale_id', id)
     await supabase.from('checkouts').delete().eq('scale_id', id)
-    await supabase.from('scales').update({ baseline_units: 0, baseline_checkout_count: 0 }).eq('id', id)
+    await supabase.from('scales').update({ baseline_units: 0, baseline_checkout_count: 0, raw_value: null }).eq('id', id)
     setReadings(p => ({ ...p, [id]: null })); setInvoices(p => ({ ...p, [id]: 0 }))
     setCheckouts(p => ({ ...p, [id]: 0 }))
-    setScales(p => ({ ...p, [id]: { ...p[id], baseline_units: 0, baseline_checkout_count: 0 } }))
+    setScales(p => ({ ...p, [id]: { ...p[id], baseline_units: 0, baseline_checkout_count: 0, raw_value: null } }))
     showFlash(id, 'All data cleared', 'warn')
   }
 
@@ -330,7 +328,7 @@ export default function App() {
       unit_weight_g: parseFloat(addForm.unit_weight_g) || 100,
       shelf_location: addForm.shelf_location.trim(),
       baseline_units: 0, baseline_checkout_count: 0,
-      tare_offset: 0, K_calibration: null,
+      tare_offset: 0, K_calibration: null, raw_value: null,
     }
     const { error } = await supabase.from('scales').insert(newConfig)
     setAddLoading(false)
@@ -757,16 +755,22 @@ function ScaleCard({
 
       {/* ─ LoRa API ─ */}
       <details className="details-block">
-        <summary>LoRa / Pi Integration — POST endpoint</summary>
+        <summary>LoRa / Pi Integration — history + snapshot writes</summary>
         <p className="api-note">
-          From your Raspberry Pi, POST directly to Supabase REST.
+          From your Raspberry Pi, insert into `readings` for history and update the matching row in `scales` for the latest snapshot.
           The dashboard updates live across all browsers instantly.
         </p>
         <pre className="code-pre">{`curl -X POST \\
   '${import.meta.env.VITE_SUPABASE_URL}/rest/v1/readings' \\
   -H 'apikey: ${import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(0, 40)}...' \\
   -H 'Content-Type: application/json' \\
-  -d '{"scale_id":"${id}","raw_value":123456}'`}
+  -d '{"scale_id":"${id}","raw_value":123456}'
+
+curl -X PATCH \\
+  '${import.meta.env.VITE_SUPABASE_URL}/rest/v1/scales?id=eq.${id}' \\
+  -H 'apikey: ${import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(0, 40)}...' \\
+  -H 'Content-Type: application/json' \\
+  -d '{"raw_value":123456}'`}
         </pre>
       </details>
     </>

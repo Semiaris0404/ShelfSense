@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
 
-// Tare and Calibrate are now pure DB writes. They read the latest raw_value
-// from the readings table (sent by the Pi every ~10s) and update the scale
-// row's tare_offset / K_calibration. No round-trip to the Pi is needed.
+// Tare and Calibrate are pure DB writes. They read raw_value directly from the
+// scale row and update tare_offset / K_calibration without any Pi round-trip.
 
 export default function ScaleControlModal({ scaleId, itemName, onClose }) {
   const [calUnits,  setCalUnits]  = useState('')
@@ -14,30 +13,27 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
 
   async function fetchLatestRaw() {
     const { data, error } = await supabase
-      .from('readings')
-      .select('raw_value, created_at')
-      .eq('scale_id', scaleId)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .from('scales')
+      .select('raw_value')
+      .eq('id', scaleId)
       .single()
-    if (error || !data) return { error: 'No raw reading found. Make sure the scale is sending data.' }
+    if (error || !data) return { error: 'Could not load the current raw value for this scale.' }
     const raw = parseFloat(data.raw_value)
-    if (isNaN(raw)) return { error: 'Latest reading is not a valid number.' }
-    const ageS = Math.round((Date.now() - new Date(data.created_at)) / 1000)
-    return { raw, ageS }
+    if (isNaN(raw)) return { error: 'No raw reading found. Make sure the scale is sending data.' }
+    return { raw }
   }
 
   async function handleTare() {
     setBusy(true)
     setTareStat({ msg: 'Reading latest raw value...', type: 'info' })
-    const { raw, ageS, error } = await fetchLatestRaw()
+    const { raw, error } = await fetchLatestRaw()
     if (error) { setTareStat({ msg: error, type: 'error' }); setBusy(false); return }
 
     const { error: upErr } = await supabase
       .from('scales').update({ tare_offset: raw }).eq('id', scaleId)
     setBusy(false)
     if (upErr) { setTareStat({ msg: `Error saving: ${upErr.message}`, type: 'error' }); return }
-    setTareStat({ msg: `✓ Tare set to ${raw} (reading was ${ageS}s ago).`, type: 'success' })
+    setTareStat({ msg: `✓ Tare set to ${raw}.`, type: 'success' })
   }
 
   async function handleCalUnits() {
@@ -52,7 +48,7 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
     if (scaleErr || !scaleRow) { setCalStat({ msg: 'Could not load scale config.', type: 'error' }); setBusy(false); return }
     const tare = scaleRow.tare_offset ?? 0
 
-    const { raw, ageS, error } = await fetchLatestRaw()
+    const { raw, error } = await fetchLatestRaw()
     if (error) { setCalStat({ msg: error, type: 'error' }); setBusy(false); return }
 
     const delta = raw - tare
@@ -64,7 +60,7 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
     setBusy(false)
     if (upErr) { setCalStat({ msg: `Error saving: ${upErr.message}`, type: 'error' }); return }
     setCalStat({
-      msg: `✓ K = ${K.toFixed(2)} raw/unit (${delta.toFixed(0)} ÷ ${n} units, reading ${ageS}s ago).`,
+      msg: `✓ K = ${K.toFixed(2)} raw/unit (${delta.toFixed(0)} ÷ ${n} units).`,
       type: 'success',
     })
     setCalUnits('')
@@ -87,7 +83,7 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
       setBusy(false); return
     }
 
-    const { raw, ageS, error } = await fetchLatestRaw()
+    const { raw, error } = await fetchLatestRaw()
     if (error) { setCalStat({ msg: error, type: 'error' }); setBusy(false); return }
 
     const delta = raw - tare
@@ -100,7 +96,7 @@ export default function ScaleControlModal({ scaleId, itemName, onClose }) {
     setBusy(false)
     if (upErr) { setCalStat({ msg: `Error saving: ${upErr.message}`, type: 'error' }); return }
     setCalStat({
-      msg: `✓ K = ${K.toFixed(2)} raw/unit (from ${g}g known mass × ${gramsPerUnit}g/unit, reading ${ageS}s ago).`,
+      msg: `✓ K = ${K.toFixed(2)} raw/unit (from ${g}g known mass × ${gramsPerUnit}g/unit).`,
       type: 'success',
     })
     setCalGrams('')

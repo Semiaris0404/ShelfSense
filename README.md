@@ -120,6 +120,12 @@ curl -X POST \
   -H 'apikey: YOUR_ANON_KEY' \
   -H 'Content-Type: application/json' \
   -d '{"scale_id":"scale_1","raw_value":123456}'
+
+curl -X PATCH \
+  'https://rlcvrkeozciihjhstbop.supabase.co/rest/v1/scales?id=eq.scale_1' \
+  -H 'apikey: YOUR_ANON_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"raw_value":123456}'
 ```
 
 ---
@@ -165,7 +171,7 @@ void loop() {
 ## How discrepancy is calculated
 
 ```
-items_on_shelf   = (raw_value − tare_offset) ÷ K_calibration   (from LoRa, computed live)
+items_on_shelf   = (scales.raw_value − tare_offset) ÷ K_calibration   (current snapshot)
 items_checked_out = cumulative POS clicks              (from dashboard)
 total_invoiced   = cumulative invoice entries          (from dashboard)
 items_in_storage = total_invoiced − on_shelf − checked_out
