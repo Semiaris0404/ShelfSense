@@ -5,12 +5,11 @@ import './App.css'
 import './StoreMap.css'
 import ScaleControlModal from './ScaleControlModal'
 
-const ALL_SCALE_IDS = ['scale_1', 'scale_2', 'scale_3', 'scale_4', 'scale_5', 'scale_6']
+const ALL_SCALE_IDS    = ['scale_1', 'scale_2', 'scale_3', 'scale_4', 'scale_5', 'scale_6']
+const ACTIVE_SCALE_IDS = new Set(['scale_1', 'scale_2'])
 
 // ─── Core metric calculation ─────────────────────────────────────────────────
 
-// units = round((raw - tare_offset) / K_calibration)
-// Returns null if raw or K is missing/invalid (uncalibrated scale shows "—").
 function rawToUnits(raw, tareOffset, kCalibration) {
   if (raw === null || raw === undefined) return null
   if (!kCalibration || kCalibration <= 0) return null
@@ -46,7 +45,6 @@ function calcMetrics(rawValue, tareOffset, kCalibration, totalInvoiced, totalChe
 export default function App() {
   const [activeTab, setActiveTab] = useState('map')
 
-  // ── data state ─────────────────────────────────────────────────────────────
   const [scales,    setScales]    = useState({})
   const [readings,  setReadings]  = useState({})
   const [invoices,  setInvoices]  = useState({})
@@ -63,16 +61,13 @@ export default function App() {
   const [flash,       setFlash]       = useState({})
   const [openModalId, setOpenModalId] = useState(null)
 
-  // ── add item modal state ───────────────────────────────────────────────────
   const [showAddModal, setShowAddModal] = useState(false)
   const [addForm,      setAddForm]      = useState({ id: '', item_name: '', unit_weight_g: 150, shelf_location: '' })
   const [addError,     setAddError]     = useState('')
   const [addLoading,   setAddLoading]   = useState(false)
 
-  // ── map panel state ────────────────────────────────────────────────────────
   const [selectedMapNode, setSelectedMapNode] = useState(null)
 
-  // ── realtime channel registry ──────────────────────────────────────────────
   const channelsRef = useRef({})
 
   const subscribeToScale = useCallback((id) => {
@@ -137,10 +132,8 @@ export default function App() {
     for (const id of ids) {
       const rawValue = cfgData?.find(row => row.id === id)?.raw_value
       newReadings[id] = rawValue === null || rawValue === undefined ? null : parseFloat(rawValue)
-
       const { data: inv } = await supabase.from('invoices').select('quantity').eq('scale_id', id)
       newInv[id] = inv ? inv.reduce((s, r) => s + r.quantity, 0) : 0
-
       const { data: chk } = await supabase.from('checkouts').select('quantity').eq('scale_id', id)
       newChk[id] = chk ? chk.reduce((s, r) => s + r.quantity, 0) : 0
     }
@@ -171,10 +164,8 @@ export default function App() {
     for (const id of ids) {
       const rawValue = cfgMap[id]?.raw_value
       newReadings[id] = rawValue === null || rawValue === undefined ? null : parseFloat(rawValue)
-
       const { data: inv } = await supabase.from('invoices').select('quantity').eq('scale_id', id)
       newInv[id] = inv ? inv.reduce((s, r) => s + r.quantity, 0) : 0
-
       const { data: chk } = await supabase.from('checkouts').select('quantity').eq('scale_id', id)
       newChk[id] = chk ? chk.reduce((s, r) => s + r.quantity, 0) : 0
     }
@@ -194,10 +185,7 @@ export default function App() {
   useEffect(() => { loadAll() }, [loadAll])
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      refreshLiveData()
-    }, 5000)
-
+    const intervalId = window.setInterval(() => { refreshLiveData() }, 5000)
     return () => window.clearInterval(intervalId)
   }, [refreshLiveData])
 
@@ -232,8 +220,7 @@ export default function App() {
       setInvoices(p => ({ ...p, [id]: (p[id] || 0) + qty }))
       setInvInput(p => ({ ...p, [id]: '' }))
       showFlash(id + '_inv', `Invoiced +${qty} units`)
-    }
-    else showFlash(id + '_inv', 'Error: ' + error.message, 'error')
+    } else showFlash(id + '_inv', 'Error: ' + error.message, 'error')
   }
 
   const doCheckout = async (id) => {
@@ -255,15 +242,13 @@ export default function App() {
     if (isNaN(v)) return showFlash(id + '_wt', 'Enter a raw load-cell value', 'warn')
     const { error: insertError } = await supabase.from('readings').insert({ scale_id: id, raw_value: v })
     if (insertError) return showFlash(id + '_wt', 'Error: ' + insertError.message, 'error')
-
     const { error: updateError } = await supabase.from('scales').update({ raw_value: v }).eq('id', id)
     if (!updateError) {
       setReadings(p => ({ ...p, [id]: v }))
       setScales(p => ({ ...p, [id]: { ...p[id], raw_value: v } }))
       setWtInput(p => ({ ...p, [id]: '' }))
       showFlash(id + '_wt', `Raw value ${v} recorded`)
-    }
-    else showFlash(id + '_wt', 'Error: ' + updateError.message, 'error')
+    } else showFlash(id + '_wt', 'Error: ' + updateError.message, 'error')
   }
 
   const manualAdd = async (id) => {
@@ -362,7 +347,7 @@ export default function App() {
   if (loading) return (
     <div className="splash">
       <div className="spinner" />
-      <p>Connecting to ShelfSense...</p>
+      <p>Connecting to inSpecter...</p>
     </div>
   )
 
@@ -373,11 +358,20 @@ export default function App() {
     <div className="app">
 
       {/* ─ header ─ */}
-      <img
-        src="/inspecter-logo.png"
-        alt="inSpecter"
-        style={{ height: 36, width: 'auto', objectFit: 'contain' }}
-      />
+      <header className="header">
+        <div className="header-inner">
+          <img
+            src="/inSpecter_higherHandle.png"
+            alt="inSpecter"
+            style={{ height: 52, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
+          />
+          <div style={{ marginLeft: 16 }}>
+            <h1>Live Inventory Dashboard</h1>
+            <p className="subtitle">Real-time grocery shelf monitoring · LoRa scale network</p>
+          </div>
+          <span className="badge-live">● LIVE</span>
+        </div>
+      </header>
 
       {/* ─ tab bar ─ */}
       <div className="tab-bar">
@@ -407,7 +401,6 @@ export default function App() {
             onNodeSelect={setSelectedMapNode}
           />
 
-          {/* ─ detail panel (desktop: right column; mobile: bottom sheet) ─ */}
           {panelId && scales[panelId] && (
             <div className="map-detail-panel">
               <div className="map-detail-header">
@@ -429,7 +422,6 @@ export default function App() {
               <div className="map-detail-scroll">
                 <ScaleCard {...cardBag(panelId)} asPanel />
               </div>
-              {/* ScaleControlModal renders as a fixed overlay, can live anywhere in the tree */}
               {openModalId === panelId && (
                 <ScaleControlModal
                   scaleId={panelId}
@@ -462,7 +454,7 @@ export default function App() {
               </div>
             )}
             {ALL_SCALE_IDS.map(id =>
-              scales[id]
+              scales[id] && ACTIVE_SCALE_IDS.has(id)
                 ? <ScaleCard key={id} {...cardBag(id)} />
                 : <PlaceholderCard key={id} id={id} />
             )}
@@ -482,16 +474,14 @@ export default function App() {
       )}
 
       <footer className="footer">
-        <p>ShelfSense · Georgia Tech CREATE-X Capstone · Team 17</p>
+        <p>inSpecter · Georgia Tech CREATE-X Capstone · Team 17</p>
         <p className="footer-sub">Real-time via Supabase Realtime WebSockets · {scaleIds.length} scale{scaleIds.length !== 1 ? 's' : ''}</p>
       </footer>
     </div>
   )
 }
 
-// ─── ScaleCard — renders the full card body ──────────────────────────────────
-// asPanel=false → wrapped in .card div (dashboard grid)
-// asPanel=true  → unwrapped content only (map detail panel)
+// ─── ScaleCard ────────────────────────────────────────────────────────────────
 
 function ScaleCard({
   id, scales, editCfg, setEditCfg, readings, invoices, checkouts,
@@ -518,7 +508,6 @@ function ScaleCard({
 
   const body = (
     <>
-      {/* card header — only in dashboard mode */}
       {!asPanel && (
         <div className="card-top">
           <div>
@@ -538,12 +527,10 @@ function ScaleCard({
         </div>
       )}
 
-      {/* ScaleControlModal — dashboard mode only (panel renders it in the panel header) */}
       {!asPanel && openModalId === id && (
         <ScaleControlModal scaleId={id} itemName={cfg.item_name} onClose={() => setOpenModalId(null)} />
       )}
 
-      {/* ─ 6 stat boxes ─ */}
       <div className="stats">
         <div className={`stat ${outOfStock ? 'stat-empty' : overStock ? 'stat-over' : lowStock ? 'stat-low' : 'stat-shelf'}`}>
           <div className="sv">{onShelf ?? '—'}</div>
@@ -575,7 +562,6 @@ function ScaleCard({
         </div>
       </div>
 
-      {/* ─ alert banners ─ */}
       {!isCalibrated && raw !== null && (
         <div className="banner banner-amber">
           Scale is uncalibrated — open Scale Controls and run Tare + Calibrate to start showing unit counts.
@@ -609,7 +595,6 @@ function ScaleCard({
         </div>
       )}
 
-      {/* ─ actions ─ */}
       <div className="actions">
         <div className="action-group">
           <div className="ag-label">
@@ -665,7 +650,6 @@ function ScaleCard({
         </div>
       </div>
 
-      {/* ─ manual adjustment ─ */}
       <details className="details-block">
         <summary>Manual Inventory Adjustment</summary>
         <div className="adj-body">
@@ -713,7 +697,6 @@ function ScaleCard({
         </div>
       </details>
 
-      {/* ─ configure ─ */}
       <details className="details-block">
         <summary>Configure Scale</summary>
         <div className="config-grid">
@@ -752,7 +735,6 @@ function ScaleCard({
         <Flash k={id + '_cfg'} flash={flash} />
       </details>
 
-      {/* ─ LoRa API ─ */}
       <details className="details-block">
         <summary>LoRa / Pi Integration — history + snapshot writes</summary>
         <p className="api-note">
@@ -842,15 +824,15 @@ function AddItemModal({ addForm, setAddForm, addError, addLoading, onClose, onAd
   )
 }
 
-// ─── Placeholder card for unconfigured scales ────────────────────────────────
+// ─── Placeholder card for unconfigured / inactive scales ─────────────────────
 
 function PlaceholderCard({ id }) {
   const num = id.replace('scale_', '')
   return (
-    <div className="card" style={{ opacity: 0.45, filter: 'grayscale(1)', pointerEvents: 'none' }}>
+    <div className="card" style={{ opacity: 0.4, filter: 'grayscale(1)', pointerEvents: 'none' }}>
       <div className="card-top">
         <div>
-          <h2 className="item-name" style={{ color: '#94a3b8' }}>Scale {num} — Not configured</h2>
+          <h2 className="item-name" style={{ color: '#94a3b8' }}>Scale {num} — Not connected</h2>
           <span className="shelf-tag">No hardware assigned</span>
         </div>
         <span className="scale-badge">{id}</span>
@@ -869,6 +851,7 @@ function PlaceholderCard({ id }) {
     </div>
   )
 }
+
 // ─── Flash message component ─────────────────────────────────────────────────
 
 function Flash({ k, flash }) {
