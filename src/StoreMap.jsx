@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import './StoreMap.css'
-
+const ALL_SCALE_IDS = ['scale_1', 'scale_2', 'scale_3', 'scale_4', 'scale_5', 'scale_6']
 // ─── Section color map ───────────────────────────────────────────────────────
 const GRAY = { fill: '#f1f5f9', stroke: '#94a3b8', text: '#64748b' }
 
@@ -72,24 +72,35 @@ const getTagGeom = (index, total) => {
 export default function StoreMap({ scales, readings, checkouts, invoices, selectedNodeId, onNodeSelect }) {
   const [hoveredId, setHoveredId] = useState(null)
 
-  // Build live node data from props
-  const allNodes = Object.entries(scales || {}).map(([id, cfg]) => {
-    const raw       = readings?.[id] ?? null
-    const K         = cfg.K_calibration
-    const onShelf   = (raw !== null && K && K > 0)
+  const allNodes = ALL_SCALE_IDS.map(id => {
+    const cfg = (scales || {})[id]
+    if (!cfg) {
+      // Placeholder — scale not yet configured
+      return {
+        id,
+        item: `Scale ${id.split('_')[1]}`,
+        onShelf: null, inStorage: null,
+        totalChk: 0, totalInv: 0,
+        lowStock: false, raw: null,
+        isPlaceholder: true,
+      }
+    }
+    const raw      = readings?.[id] ?? null
+    const K        = cfg.K_calibration
+    const onShelf  = (raw !== null && K && K > 0)
       ? Math.max(0, Math.round((raw - (cfg.tare_offset || 0)) / K))
       : null
-    const totalInv  = invoices?.[id]  || 0
+    const totalInv  = invoices?.[id] || 0
     const totalChk  = checkouts?.[id] || 0
     const inStorage = onShelf !== null ? Math.max(0, totalInv - onShelf - totalChk) : null
     const lowStock  = onShelf !== null && onShelf <= 3
-    return { id, item: cfg.item_name, onShelf, inStorage, totalChk, totalInv, lowStock, raw }
+    return { id, item: cfg.item_name, onShelf, inStorage, totalChk, totalInv, lowStock, raw, isPlaceholder: false }
   })
-
   // ── status color ──────────────────────────────────────────────────────────
 
   const nodeColor = (node) => {
-    if (node.onShelf === null) return '#94a3b8'
+    if (node.isPlaceholder)    return '#cbd5e1'   // light gray for unassigned
+    if (node.onShelf === null) return '#94a3b8'   // dark gray — no reading yet
     if (node.onShelf === 0)    return '#dc2626'
     if (node.lowStock)         return '#d97706'
     return '#16a34a'
