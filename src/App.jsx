@@ -5,6 +5,8 @@ import './App.css'
 import './StoreMap.css'
 import ScaleControlModal from './ScaleControlModal'
 
+const ALL_SCALE_IDS = ['scale_1', 'scale_2', 'scale_3', 'scale_4', 'scale_5', 'scale_6']
+
 // ─── Core metric calculation ─────────────────────────────────────────────────
 
 // units = round((raw - tare_offset) / K_calibration)
@@ -459,9 +461,11 @@ export default function App() {
                 <p>Click <strong>+ Add New Item</strong> to create your first scale.</p>
               </div>
             )}
-            {scaleIds.map(id => (
-              <ScaleCard key={id} {...cardBag(id)} />
-            ))}
+            {ALL_SCALE_IDS.map(id =>
+              scales[id]
+                ? <ScaleCard key={id} {...cardBag(id)} />
+                : <PlaceholderCard key={id} id={id} />
+            )}
           </main>
 
           {showAddModal && (
@@ -838,6 +842,33 @@ function AddItemModal({ addForm, setAddForm, addError, addLoading, onClose, onAd
   )
 }
 
+// ─── Placeholder card for unconfigured scales ────────────────────────────────
+
+function PlaceholderCard({ id }) {
+  const num = id.replace('scale_', '')
+  return (
+    <div className="card" style={{ opacity: 0.45, filter: 'grayscale(1)', pointerEvents: 'none' }}>
+      <div className="card-top">
+        <div>
+          <h2 className="item-name" style={{ color: '#94a3b8' }}>Scale {num} — Not configured</h2>
+          <span className="shelf-tag">No hardware assigned</span>
+        </div>
+        <span className="scale-badge">{id}</span>
+      </div>
+      <div className="stats">
+        {['On Shelf', 'In Storage', 'Unaccounted', 'Total Inventory', 'Total Invoiced', 'Checked Out'].map(label => (
+          <div key={label} className="stat">
+            <div className="sv" style={{ color: '#cbd5e1' }}>—</div>
+            <div className="sl">{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="banner banner-info" style={{ opacity: 0.6 }}>
+        Scale {num} is not yet connected. Flash firmware with NODE_ID {num} and wire up to activate.
+      </div>
+    </div>
+  )
+}
 // ─── Flash message component ─────────────────────────────────────────────────
 
 function Flash({ k, flash }) {
