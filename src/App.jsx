@@ -371,16 +371,11 @@ export default function App() {
     <div className="app">
 
       {/* ─ header ─ */}
-      <header className="header">
-        <div className="header-inner">
-          <span className="logo-text">ShelfSense</span>
-          <div>
-            <h1>Live Inventory Dashboard</h1>
-            <p className="subtitle">Real-time grocery shelf monitoring · LoRa scale network</p>
-          </div>
-          <span className="badge-live">LIVE</span>
-        </div>
-      </header>
+      <img
+        src="/inspecter-logo.png"
+        alt="inSpecter"
+        style={{ height: 36, width: 'auto', objectFit: 'contain' }}
+      />
 
       {/* ─ tab bar ─ */}
       <div className="tab-bar">
