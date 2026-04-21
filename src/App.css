@@ -44,31 +44,31 @@ body {
 /* ─── header ────────────────────────────────────────────────────────────── */
 
 .header {
-  background: var(--dark);
-  color: #fff;
-  padding: 18px 32px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 12px 32px;
   position: sticky; top: 0; z-index: 10;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 0 var(--border);
 }
-.header-inner { display: flex; align-items: center; gap: 14px; }
+.header-inner { display: flex; align-items: center; gap: 0; }
 .logo-text {
   font-size: 1rem; font-weight: 700;
-  color: #60a5fa;
+  color: var(--blue);
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
-.header h1 { font-size: 1.15rem; font-weight: 600; }
-.subtitle { font-size: 12px; color: #94a3b8; margin-top: 1px; }
+.header h1 { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.subtitle { font-size: 12px; color: var(--muted); margin-top: 1px; }
 .badge-live {
   margin-left: auto;
-  background: rgba(74,222,128,0.12);
-  color: #4ade80;
-  border: 1px solid rgba(74,222,128,0.3);
-  padding: 3px 12px;
+  background: #dcfce7;
+  color: #16a34a;
+  border: 1.5px solid #86efac;
+  padding: 4px 14px;
   border-radius: 99px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
 /* ─── main grid ─────────────────────────────────────────────────────────── */
@@ -370,9 +370,9 @@ body {
   display: flex;
   flex-direction: column;
   /* Align height with the visible viewport so it feels like a true side panel */
-  max-height: calc(100vh - 130px);
+  max-height: calc(100vh - 117px);
   position: sticky;
-  top: 130px;
+  top: 117px;
 }
 
 .map-detail-header {
