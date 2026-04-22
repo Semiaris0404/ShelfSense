@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import './StoreMap.css'
 
-// ── Which scales have real hardware ──────────────────────────────────────────
-const ACTIVE_IDS  = new Set(['scale_1', 'scale_2'])
+// DB uses scale_1/scale_2 internally — display as sensor_1/sensor_2
+const ACTIVE_IDS    = new Set(['scale_1', 'scale_2'])
 const ALL_SCALE_IDS = ['scale_1', 'scale_2', 'scale_3', 'scale_4', 'scale_5', 'scale_6']
+const toSensorId    = (id) => id ? id.replace('scale_', 'sensor_') : id
 
 const GRAY = { fill: '#f1f5f9', stroke: '#94a3b8', text: '#64748b' }
 const SECTION_COLORS = {
@@ -23,48 +24,37 @@ const FLOOR_SECTIONS = [
   { id: 'checkout',  label: 'Checkout',  x: 10, y: 4,  w: 22, h: 10, section: 'Checkout'  },
 ]
 
-const PRODUCE   = FLOOR_SECTIONS.find(s => s.section === 'Produce')
-const TAG_W     = 14
-const TAG_H     = 4
-const GAP       = 3
-const ROW_SIZE  = 3   // 3 tags per row
+const PRODUCE  = FLOOR_SECTIONS.find(s => s.section === 'Produce')
+const TAG_W    = 14
+const TAG_H    = 4
+const GAP      = 3
+const ROW_SIZE = 3
 
-// Row 0 = TOP edge of Produce, Row 1 = BOTTOM edge
-// index 0,1,2 → top row (scale_1,2,3)
-// index 3,4,5 → bottom row (scale_4,5,6)
+// Row 0 = TOP edge, Row 1 = BOTTOM edge
 const getTagGeom = (index, total) => {
-  const isBottom  = index >= ROW_SIZE
-  const rowIndex  = isBottom ? index - ROW_SIZE : index
-  const rowCount  = isBottom
-    ? Math.max(0, total - ROW_SIZE)
-    : Math.min(total, ROW_SIZE)
-
+  const isBottom = index >= ROW_SIZE
+  const rowIndex = isBottom ? index - ROW_SIZE : index
+  const rowCount = isBottom ? Math.max(0, total - ROW_SIZE) : Math.min(total, ROW_SIZE)
   const totalRowWidth = rowCount * TAG_W + Math.max(0, rowCount - 1) * GAP
   const startX = PRODUCE.x + (PRODUCE.w - totalRowWidth) / 2
   const cx = startX + rowIndex * (TAG_W + GAP) + TAG_W / 2
-
   const EDGE_PAD = 1.5
-  // Top row: tag sits just below the top edge of Produce
-  // Bottom row: tag sits just above the bottom edge of Produce
   const y0 = isBottom
     ? PRODUCE.y + PRODUCE.h - TAG_H - EDGE_PAD
     : PRODUCE.y + EDGE_PAD
-
   return { cx, cy: y0 + TAG_H / 2, x0: cx - TAG_W / 2, y0, isBottom }
 }
 
 export default function StoreMap({ scales, readings, checkouts, invoices, selectedNodeId, onNodeSelect }) {
   const [hoveredId, setHoveredId] = useState(null)
 
-  // Build nodes in fixed order 1→6, placeholders for missing/inactive
   const allNodes = ALL_SCALE_IDS.map(id => {
-    const cfg       = (scales || {})[id]
-    const isActive  = ACTIVE_IDS.has(id)
+    const cfg      = (scales || {})[id]
+    const isActive = ACTIVE_IDS.has(id)
 
     if (!cfg || !isActive) {
       return {
-        id,
-        item: `Scale ${id.split('_')[1]}`,
+        id, item: `Sensor ${id.split('_')[1]}`,
         onShelf: null, inStorage: null,
         totalChk: 0, totalInv: 0,
         lowStock: false, raw: null,
@@ -72,9 +62,9 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
       }
     }
 
-    const raw      = readings?.[id] ?? null
-    const K        = cfg.K_calibration
-    const onShelf  = (raw !== null && K && K > 0)
+    const raw     = readings?.[id] ?? null
+    const K       = cfg.K_calibration
+    const onShelf = (raw !== null && K && K > 0)
       ? Math.max(0, Math.round((raw - (cfg.tare_offset || 0)) / K))
       : null
     const totalInv  = invoices?.[id]  || 0
@@ -85,11 +75,11 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
   })
 
   const nodeColor = (node) => {
-    if (node.isPlaceholder)    return '#cbd5e1'  // light gray — unused
-    if (node.onShelf === null) return '#94a3b8'  // dark gray — no reading yet
-    if (node.onShelf === 0)    return '#dc2626'  // red — empty
-    if (node.lowStock)         return '#d97706'  // amber — low stock
-    return '#16a34a'                             // green — OK
+    if (node.isPlaceholder)    return '#cbd5e1'
+    if (node.onShelf === null) return '#94a3b8'
+    if (node.onShelf === 0)    return '#dc2626'
+    if (node.lowStock)         return '#d97706'
+    return '#16a34a'
   }
 
   return (
@@ -100,7 +90,7 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
         <span className="leg-item"><span className="leg-rect" style={{ background: '#dc2626' }} />Empty</span>
         <span className="leg-item"><span className="leg-rect" style={{ background: '#94a3b8' }} />No reading yet</span>
         <span className="leg-item"><span className="leg-rect" style={{ background: '#cbd5e1' }} />Not connected</span>
-        <span className="leg-item leg-hint">Click a shelf tag to view details</span>
+        <span className="leg-item leg-hint">Click a sensor tag to view details</span>
       </div>
 
       <div className="map-container" onClick={() => onNodeSelect?.(null)}>
@@ -128,8 +118,8 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
             const prev = getTagGeom(i - 1, allNodes.length)
             const curr = getTagGeom(i,     allNodes.length)
             if (prev.isBottom !== curr.isBottom) return null
-            const sepX = (prev.x0 + TAG_W + curr.x0) / 2
-            const lineY1 = curr.isBottom ? PRODUCE.y + PRODUCE.h - 6  : PRODUCE.y + 0.5
+            const sepX  = (prev.x0 + TAG_W + curr.x0) / 2
+            const lineY1 = curr.isBottom ? PRODUCE.y + PRODUCE.h - 6   : PRODUCE.y + 0.5
             const lineY2 = curr.isBottom ? PRODUCE.y + PRODUCE.h - 0.5 : PRODUCE.y + TAG_H + 1.5
             return (
               <line key={`sep-${i}`}
@@ -139,13 +129,13 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
             )
           })}
 
-          {/* Scale shelf tags */}
+          {/* Sensor shelf tags */}
           {allNodes.map((node, i) => {
             const color      = nodeColor(node)
             const isHovered  = hoveredId === node.id
             const isSelected = selectedNodeId === node.id
             const { x0, y0, cx, cy, isBottom } = getTagGeom(i, allNodes.length)
-            const truncName  = node.item.length > 12 ? node.item.slice(0, 11) + '…' : node.item
+            const displayName = node.item.length > 12 ? node.item.slice(0, 11) + '…' : node.item
 
             return (
               <g key={node.id}
@@ -165,8 +155,7 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
                 )}
                 {isHovered && !isSelected && !node.isPlaceholder && (
                   <rect x={x0 - 0.8} y={y0 - 0.8} width={TAG_W + 1.6} height={TAG_H + 1.6}
-                    rx="1.2" fill="none" stroke={color} strokeWidth="0.5" opacity="0.6"
-                    strokeDasharray="1.2,0.8" />
+                    rx="1.2" fill="none" stroke={color} strokeWidth="0.5" opacity="0.6" strokeDasharray="1.2,0.8" />
                 )}
                 <rect x={x0} y={y0} width={TAG_W} height={TAG_H}
                   rx="0.8" fill={color} stroke="white"
@@ -176,15 +165,16 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
                   textAnchor="middle" dominantBaseline="central"
                   fontSize="1.7" fill={node.isPlaceholder ? '#64748b' : 'white'}
                   fontWeight="700" style={{ pointerEvents: 'none' }}>
-                  {truncName}
+                  {displayName}
                 </text>
+                {/* Sensor ID label — inside section, below tag for top row, above for bottom row */}
                 <text
                   x={cx}
                   y={isBottom ? y0 - 1.4 : y0 + TAG_H + 1.8}
-                  textAnchor="middle"
-                  fontSize="1.5" fill={node.isPlaceholder ? '#94a3b8' : color}
+                  textAnchor="middle" fontSize="1.5"
+                  fill={node.isPlaceholder ? '#94a3b8' : color}
                   fontWeight="600" style={{ pointerEvents: 'none' }}>
-                  {node.id}
+                  {toSensorId(node.id)}
                 </text>
               </g>
             )
