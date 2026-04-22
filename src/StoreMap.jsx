@@ -178,9 +178,11 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
                   fontWeight="700" style={{ pointerEvents: 'none' }}>
                   {truncName}
                 </text>
-                <text x={cx} y={y0 - 1.4}
-                  textAnchor="middle" fontSize="1.5"
-                  fill={node.isPlaceholder ? '#94a3b8' : color}
+                <text
+                  x={cx}
+                  y={isBottom ? y0 - 1.4 : y0 + TAG_H + 1.8}
+                  textAnchor="middle"
+                  fontSize="1.5" fill={node.isPlaceholder ? '#94a3b8' : color}
                   fontWeight="600" style={{ pointerEvents: 'none' }}>
                   {node.id}
                 </text>
