@@ -284,7 +284,7 @@ export default function App() {
         <div className="header-inner">
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
             <img
-              src="/inspecter-logo.png"
+              src="/inSpecter_backless.png"
               alt="inSpecter"
               style={{ height: 52, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
             />
