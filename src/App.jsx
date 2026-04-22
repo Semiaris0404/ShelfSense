@@ -288,7 +288,7 @@ export default function App() {
               alt="inSpecter"
               style={{ height: 52, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
             />
-            <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, paddingLeft: 3 }}>
+            <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, paddingLeft: 1 }}>
               Live Inventory Monitor
             </span>
           </div>
