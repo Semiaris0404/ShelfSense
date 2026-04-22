@@ -361,9 +361,9 @@ export default function App() {
       <header className="header">
         <div className="header-inner">
           <img
-            src="/inSpecter_higherHandle.png"
+            src="/inSpecter_backless.png"    // ← new filename
             alt="inSpecter"
-            style={{ height: 52, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
+            style={{ height: 72, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
           />
           <div style={{ marginLeft: 16 }}>
             <h1>Live Inventory Dashboard</h1>
