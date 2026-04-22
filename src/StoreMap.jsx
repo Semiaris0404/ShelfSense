@@ -144,7 +144,7 @@ export default function StoreMap({ scales, readings, checkouts, invoices, select
             const color      = nodeColor(node)
             const isHovered  = hoveredId === node.id
             const isSelected = selectedNodeId === node.id
-            const { x0, y0, cx, cy } = getTagGeom(i, allNodes.length)
+            const { x0, y0, cx, cy, isBottom } = getTagGeom(i, allNodes.length)
             const truncName  = node.item.length > 12 ? node.item.slice(0, 11) + '…' : node.item
 
             return (
