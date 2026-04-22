@@ -365,10 +365,10 @@ export default function App() {
             alt="inSpecter"
             style={{ height: 72, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
           />
-          <div style={{ marginLeft: 16 }}>
+          {/*<div style={{ marginLeft: 16 }}>
             <h1>Live Inventory Dashboard</h1>
             <p className="subtitle">Real-time grocery shelf monitoring · LoRa scale network</p>
-          </div>
+          </div>*/}
           <span className="badge-live">● LIVE</span>
         </div>
       </header>
